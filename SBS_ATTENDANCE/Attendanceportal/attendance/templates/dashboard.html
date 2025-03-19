@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Dashboard</title>
+    <style>
+        body {
+           
+            background: url('/templates/media/SBS logo.png') no-repeat center center fixed;
+            background-size: cover;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+           
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            background: orange,blue;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            display: inline-block;
+            width: 400px;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 18px;
+        }
+        button {
+            padding: 12px 25px;
+            margin: 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .break-btn { background-color: #007bff; color: #fff; }
+        .end-break-btn { background-color: #28a745; color: #fff; }
+        .logout-btn { background-color: #dc3545; color: #fff; }
+        #date { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+
+        .change-password-btn {
+            background-color:rgb(7, 7, 255);
+            color: white;
+            padding: 10px 10px;
+            margin: 100px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+       </style>
+
+        
+
+
+    
+
+    <script>
+        let attendanceId = null;
+        let workTimer, breakTimer, idleTimer;
+        let isOnBreak = false;
+
+        function fetchAttendanceSession() {
+            fetch('/api/attendance/start_session/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.attendance_id) {
+                        attendanceId = data.attendance_id;
+                        console.log("Attendance session started with ID:", attendanceId);
+                    }
+                });
+        }
+
+        function startTimers() {
+            if (!workTimer) {
+                workTimer = setInterval(updateWorkTimer, 1000);
+            }
+        }
+
+        function updateWorkTimer() {
+            const timerElement = document.getElementById("workTimer");
+            let time = parseInt(timerElement.dataset.time) || 0;
+            time++;
+            timerElement.dataset.time = time;
+            timerElement.textContent = new Date(time * 1000).toISOString().substr(11, 8);
+        }
+
+        function updateBreakTimer() {
+            const breakElement = document.getElementById("breakTimer");
+            let breakTime = parseInt(breakElement.dataset.time) || 0;
+            breakTime++;
+            breakElement.dataset.time = breakTime;
+            breakElement.textContent = new Date(breakTime * 1000).toISOString().substr(11, 8);
+        }
+
+        function startBreak() {
+            if (!attendanceId) {
+                alert("Attendance session not found.");
+                return;
+            }
+            fetch('/api/attendance/start_break/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({attendance_id: attendanceId})
+            }).then(res => res.json())
+            .then(data => {
+                if (data.message) {
+                    isOnBreak = true;
+                    breakTimer = setInterval(updateBreakTimer, 1000);
+                    alert(data.message);
+                }
+            });
+        }
+
+        function endBreak() {
+            if (!attendanceId) {
+                alert("Attendance session not found.");
+                return;
+            }
+            fetch('/api/attendance/end_break/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({attendance_id: attendanceId})
+            }).then(res => res.json())
+            .then(data => {
+                if (data.message) {
+                    isOnBreak = false;
+                    clearInterval(breakTimer);
+                    breakTimer = null;
+                    alert(data.message);
+                }
+            });
+        }
+
+        function autoLogout() {
+            alert("You have been logged out due to inactivity.");
+            fetch('/api/attendance/logout/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ attendance_id: attendanceId, auto_logout: true })
+            }).then(() => window.location.href = "/");
+        }
+
+        function manualLogout() {
+            if (!attendanceId) {
+                alert("No active attendance session.");
+                return;
+            }
+            fetch('/api/attendance/logout/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ attendance_id: attendanceId })
+            }).then(() => {
+                alert("Logout successful.");
+                window.location.href = "/";
+            });
+        }
+
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(autoLogout, 15 * 60 * 1000);
+        }
+
+        function updateDate() {
+            const dateElement = document.getElementById("date");
+            const today = new Date();
+            dateElement.textContent = today.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        window.onload = function() {
+            resetIdleTimer();
+            startTimers();
+            updateDate();
+            fetchAttendanceSession();
+        }
+
+        document.addEventListener("mousemove", resetIdleTimer);
+        document.addEventListener("keypress", resetIdleTimer);
+    </script>
+   
+</head>
+<body>
+  
+    <div class="container"><br>
+        <p id="date"></p>
+        <h1>Welcome, {{ username }}</h1>
+        <p>Working Hours: <span id="workTimer" data-time="0">00:00:00</span></p>
+        <p>Break Hours: <span id="breakTimer" data-time="0">00:00:00</span></p>
+       
+        <button class="break-btn" onclick="startBreak()">Start Break</button>
+        <button class="end-break-btn" onclick="endBreak()">End Break</button>
+        <button class="logout-btn" onclick="manualLogout()">Logout</button>
+    </div>
+    <div>
+    <button class="change-password-btn" onclick="window.location.href='/change-password/'">Change Password</button>
+    </div>
+
+
+</body>
+</html>
