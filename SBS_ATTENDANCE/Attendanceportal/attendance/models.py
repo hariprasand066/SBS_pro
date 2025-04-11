@@ -7,6 +7,8 @@ from django.db import models
 from django.contrib.auth.hashers import make_password
 
 class Employee(models.Model):
+    staff_name = models.ForeignKey(User, on_delete=models.CASCADE)
+    
     username = models.CharField(max_length=150, unique=True)
     password = models.CharField(max_length=100, blank=True)
     role = models.CharField(max_length=20, blank=True)
@@ -18,15 +20,16 @@ class Employee(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.username
+        return self.name
 
 
 class Attendance(models.Model):
-    Staff_name = models.ForeignKey(Employee, on_delete=models.CASCADE) 
+    staff_name = models.ForeignKey('Employee', on_delete=models.CASCADE) 
     Day=models.DateTimeField(default=now)
     Date=models.DateTimeField(default=now)
-    login_time = models.DateTimeField(default=now)
-    logout_time = models.DateTimeField(null=True, blank=True)
+    start_time = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    breaks_taken = models.IntegerField(default=0)
     is_on_break = models.BooleanField(default=False)
     break_start_time = models.DateTimeField(null=True, blank=True)
     break_end_time = models.DateTimeField(null=True, blank=True)
@@ -36,4 +39,4 @@ class Attendance(models.Model):
     
     
     def __str__(self):
-        return f"{self.employee.user} - {self.login_time}"
+         return f"Attendance Record for {self.staff_name}"
